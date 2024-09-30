@@ -32,10 +32,10 @@ ila_sorted <- ila_import |>
 ila_sorted$ProduksjonsområdeId <- factor(ila_sorted$ProduksjonsområdeId, levels = 1:12) #konverterer til faktorer, ettersom fra produksjonsområdene er det ikke rapportert noe fra 1
 
 
-ila_graph_clean <- ila_sorted[!is.na(ila_sorted$ProduksjonsområdeId), ] #fjerner NA-verdier
+ila_clean <- ila_sorted[!is.na(ila_sorted$ProduksjonsområdeId), ] #fjerner NA-verdier
 
 
-ila_graph_clean |> 
+ila_clean |> 
   ggplot(aes(x = ProduksjonsområdeId, fill = Status)) + 
   geom_bar(position = "stack") +
   scale_x_discrete(drop = FALSE, expand = expansion(mult = c(0, 0))) +  
@@ -43,33 +43,6 @@ ila_graph_clean |>
   theme_minimal()
 ```
 
-### Tabell som viser de ulike rapportere statusene av ILA per produksjonsområde
-
-
-```{r}
-#| label:  lager tabell med ila
-#| message: false
-
-ila_summary <- ila_sorted |> 
-  group_by(ProduksjonsområdeId, Status) |> 
-  summarise(Antall = n(), .groups = "drop") |> 
-  complete(ProduksjonsområdeId = factor(1:12), Status, fill = list(Antall = 0))
-
-ila_pivot <- ila_summary |> 
-  pivot_wider(names_from = Status, values_from = Antall, values_fill = 0)
-
-ila_pivot |> 
-  gt() |> 
-  tab_header(
-    title = "Antall rapporterte tilfeller av infeksiøs lakseanemi (ILA) per produksjonsområde ID"
-  ) |> 
-  cols_label(
-    ProduksjonsområdeId = "ProduksjonsområdeID",
-    Påvist = "Påvist ILA",
-    Mistanke = "Mistanke om ILA",
-    Avsluttet = "Asluttet behandling av ILA"
-  )
-```
 
 ### Grafisk fremstilling av tiltak for fjerning av lakselus per produksjonsområde
 
@@ -84,8 +57,6 @@ lakselus$ProduksjonsområdeId <- factor(lakselus$ProduksjonsområdeId, levels = 
 lakselus_clean <- lakselus |> 
   filter(!is.na(ProduksjonsområdeId), !is.na(Tiltak)) #filtrerer ut NA
 
-
-
 #plotter fragen
 lakselus_clean |> 
   ggplot(aes(x = ProduksjonsområdeId, fill = Tiltak)) + 
@@ -95,8 +66,46 @@ lakselus_clean |>
   theme_minimal()
 ```
 
-### Tabell som viser antall tiltak for å fjerne lakselus per produksjonsområdeID
 
+
+
+Prøver å kombinere de to datasettene for å få grafene på siden av hverandre - for å enklere kunne se korrelasjonen. 
+
+```{r}
+#| label: grafene stilles opp mot hverandre
+#| message: false
+
+
+ila_data <- ila_clean |> 
+  select(ProduksjonsområdeId, Status)
+
+lakselus_data <- lakselus_clean |> 
+  select(ProduksjonsområdeId, Tiltak) #nye datarammer
+
+ila_data <- ila_data |> 
+  mutate(Type = "Status for ILA", Combined = paste("Status - ", Status))  
+
+lakselus_data <- lakselus_data |> 
+  mutate(Type = "Tiltak mot lakselus", Combined = paste("Tiltak - ", Tiltak))  
+
+
+combined_data <- bind_rows(ila_data, lakselus_data)
+
+
+combined_graph <- combined_data |> 
+  ggplot(aes(x = ProduksjonsområdeId, fill = Combined)) + 
+  geom_bar(position = "stack") +
+  scale_x_discrete(drop = FALSE, expand = expansion(mult = c(0, 0))) +  
+  labs(x = "Produksjonsområde ID", y = "Antall rapporterte tilfeller / tiltak", fill = "Kategori") +
+  theme_minimal() +
+  facet_wrap(~ Type, scales = "free_y") +  
+  theme(strip.text = element_text(size = 14, face = "bold"))  
+
+# Vis grafen
+print(combined_graph)
+
+```
+### Tabell som viser antall tiltak for å fjerne lakselus per produksjonsområdeID
 ```{r}
 #| label: lager tabell for lakselus
 #| message: false
@@ -119,17 +128,51 @@ lakselus_wider |>
     ProduksjonsområdeId = "Produksjonsområde ID",            
     `mekanisk fjerning` = "Mekanisk fjerning",               
     medikamentell = "Medikamentell fjerning",                
-    rensefisk = "Fjerning med rensefisk"                     
+    rensefisk = "Fjerning med rensefisk" )
+
+```
+
+
+
+
+
+
+### Tabell som viser de ulike rapportere statusene av ILA per produksjonsområde
+
+```{r}
+#| label:  lager tabell med ila
+#| message: false
+
+ila_summary <- ila_sorted |> 
+  group_by(ProduksjonsområdeId, Status) |> 
+  summarise(Antall = n(), .groups = "drop") |> 
+  complete(ProduksjonsområdeId = factor(1:12), Status, fill = list(Antall = 0))
+
+
+
+ila_pivot <- ila_summary |> 
+  pivot_wider(names_from = Status, values_from = Antall, values_fill = 0)
+
+ila_pivot |> 
+  gt() |> 
+  tab_header(
+    title = "Antall rapporterte tilfeller av infeksiøs lakseanemi (ILA) per produksjonsområde ID"
+  ) |> 
+  cols_label(
+    ProduksjonsområdeId = "ProduksjonsområdeID",
+    Påvist = "Påvist ILA",
+    Mistanke = "Mistanke om ILA",
+    Avsluttet = "Asluttet behandling av ILA"
   )
 ```
+
 
 
 ### Antall unike lokalitetsnumre per produksjonsområde per datasett
 
 ```{r}
-#| label: finner unike lokalitetsnumre i hver produksjonsområde
+#| label: finner unike lokalitesnumre
 #| message: false
-
 
 # Telle antall unike lokalitetsnumre per produksjonsområde
 ant_lokalitetsnummerila <- ila_sorted |> 
@@ -151,31 +194,93 @@ ant_lokalitetsnummerila |>
   geom_col() +
   theme_minimal()+
   labs(title = "Antall unike produksjonsområder per ProduksjonsområdeID i ILA-datasett",
-    x = "Produksjonsområde", y = "Antall lokaliteter")
+    x = "ProduksjonsområdeID", y = "Antall lokaliteter")
+
+ant_lokalitetsnummerlakselus |> 
+  ggplot(aes(x = ProduksjonsområdeId, y = AntallLokaliteter)) +
+  geom_col() +
+  theme_minimal()+
+  labs(title = "Antall unike produksjonsområder per ProduksjonsområdeID i lakselus-datasett",
+    x = "ProduksjonsområdeID", y = "Antall lokaliteter")
 ```
+
+
+For begge tabellene hadde det vært interessant å regnet ut antall tilfeller av ILA totalt, delt på antall tilfeller i hver produksjonsområde opp mot antall unike lokalitetsnumre? Videre gjøre noe av det samme med å dele antall påviste tilfeller av lakselus og dele opp mot antall per produksjonsområde
+
+
+### Regner ut på lakselus datasett
+```{r}
+#| label: regner ut prosentvis informasjon opp mot lokalitetsnumre laksel
+#| message: false
+sum_fjerning <- lakselus_summary |> 
+  summarise(total_fjerning = sum(Antall)) #sum totale tiltak
+
+sum_fjerning_pr_id <- lakselus_summary |> 
+  group_by(ProduksjonsområdeId) |> 
+  summarise(total_fjerning_pr_id = sum(Antall), .groups = "drop")  #summering av tiltak per produksjonsområde ID
+
+
+total_fjerning <- sum_fjerning_pr_id |> 
+  mutate(percentage = (total_fjerning_pr_id / sum_fjerning$total_fjerning) * 100)  #prosentberegning
+
+total_fjerning_with_lokaliteter <- total_fjerning |> 
+  left_join(ant_lokalitetsnummerlakselus, by = "ProduksjonsområdeId")
+
+total_fjerning_with_lokaliteter |> 
+  gt() |> 
+   tab_header(
+    title = "Antalle tiltak  per produksjonsområde ID og antall lokaliteter per produksjonsområde ID"
+  ) |> 
+  cols_label(
+    ProduksjonsområdeId = "Produksjonsområde ID",
+    total_fjerning_pr_id = "Antall tiltak",
+    percentage = "Prosent tiltak ",
+    AntallLokaliteter = "Antall lokaliteter i produksjonsområde"
+  )
+```
+
+### Regner ut på ILA datasett
+
 
 
 ```{r}
-# Telle antall unike lokalitetsnumre per produksjonsområde
-ant_lokalitetsnummerila <- ila_sorted |> 
+
+# Summere totale positive statuser
+sum_positiv <- ila_pivot |> 
+  summarise(total_positiv = sum(Påvist))
+
+
+#sum av toale positve per produksjonsområde
+sum_positiv_pr_id <- ila_sorted |> 
   group_by(ProduksjonsområdeId) |> 
-  summarise(AntallLokaliteter = n_distinct(Lokalitetsnummer)) |> 
-  arrange(ProduksjonsområdeId)
+  summarise(total_positiv_pr_id =  sum(Status == "Påvist"), .groups = "drop")
 
-#i ila-datasettet eksisrerer det to påvist/avsluttet som ikke er knyttet til et produksjonsområd. Jeg velger å ikke bruke disse da de ikke er tilknyttet produksjonsområdeID
+# Beregn prosentandel av positive statuser per produksjonsområde
+total_positiv <- sum_positiv_pr_id |> 
+  mutate(percentage = (total_positiv_pr_id / sum_positiv$total_positiv) * 100)
+
+total_positiv_med_lokaliteter <- total_positiv |> 
+  left_join(ant_lokalitetsnummerila, by = "ProduksjonsområdeId")
+
+total_positiv_med_lokaliteter |> 
+  gt() |> 
+  tab_header(
+    title = "Antalle påviste tilfeller per produksjonsområde ID og antall lokaliteter per produksjonsområde ID"
+  ) |> 
+  cols_label(
+    ProduksjonsområdeId = "Produksjonsområde ID",
+    total_positiv_pr_id = "Antall påviste tilfeller med ILA",
+    percentage = "Prosent tilfeller med ILA ",
+    AntallLokaliteter = "Antall lokaliteter i produksjonsområde"
+  )
+  
 
 
-ant_lokalitetsnummerlakselus <- lakselus_clean |> 
-  group_by(ProduksjonsområdeId) |> 
-  summarise(AntallLokaliteter = n_distinct(Lokalitetsnummer)) |> 
-  arrange(ProduksjonsområdeId)
-
-
-ant_lokalitetsnummerila |> 
-  ggplot(aes(x = ProduksjonsområdeId, y = AntallLokaliteter)) +
-  geom_col() +
-  theme_minimal()+
-  labs(title = "Antall unike produksjonsområder per ProduksjonsområdeID i ILA-datasett",
-    x = "Produksjonsområde", y = "Antall lokaliteter")
+            
 ```
+
+
+
+
+
 
