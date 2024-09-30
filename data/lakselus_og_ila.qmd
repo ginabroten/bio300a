@@ -1,0 +1,181 @@
+---
+title: "Lakselus og Infeksiøs lakseanemi (ILA)"
+format: html
+editor: visual
+---
+
+## Grafisk fremstilling av forekomst av ILA og tiltak for fjerning av lakselus
+
+
+```{r}
+#| label: setup of needed packagea
+#| message: false
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(gt)
+```
+
+### Grafisk fremstilling av forekomsten av ILA per produksjonsområde
+
+```{r}
+#| label: lager graf for ila
+#| message: false
+
+ila_import <- read_delim("ila_pd.csv", delim = ";") #importerer ila-data 
+
+ila_sorted <- ila_import |> 
+  filter(Sykdom == "ILA") #sorterer slik at vi kun får data om ila
+
+
+ila_sorted$ProduksjonsområdeId <- factor(ila_sorted$ProduksjonsområdeId, levels = 1:12) #konverterer til faktorer, ettersom fra produksjonsområdene er det ikke rapportert noe fra 1
+
+
+ila_graph_clean <- ila_sorted[!is.na(ila_sorted$ProduksjonsområdeId), ] #fjerner NA-verdier
+
+
+ila_graph_clean |> 
+  ggplot(aes(x = ProduksjonsområdeId, fill = Status)) + 
+  geom_bar(position = "stack") +
+  scale_x_discrete(drop = FALSE, expand = expansion(mult = c(0, 0))) +  
+  labs(x = "Produksjonsområde ID", y = "Antall rapporterte tilfeller pr. fisk", fill = "Status") +
+  theme_minimal()
+```
+
+### Tabell som viser de ulike rapportere statusene av ILA per produksjonsområde
+
+
+```{r}
+#| label:  lager tabell med ila
+#| message: false
+
+ila_summary <- ila_sorted |> 
+  group_by(ProduksjonsområdeId, Status) |> 
+  summarise(Antall = n(), .groups = "drop") |> 
+  complete(ProduksjonsområdeId = factor(1:12), Status, fill = list(Antall = 0))
+
+ila_pivot <- ila_summary |> 
+  pivot_wider(names_from = Status, values_from = Antall, values_fill = 0)
+
+ila_pivot |> 
+  gt() |> 
+  tab_header(
+    title = "Antall rapporterte tilfeller av infeksiøs lakseanemi (ILA) per produksjonsområde ID"
+  ) |> 
+  cols_label(
+    ProduksjonsområdeId = "ProduksjonsområdeID",
+    Påvist = "Påvist ILA",
+    Mistanke = "Mistanke om ILA",
+    Avsluttet = "Asluttet behandling av ILA"
+  )
+```
+
+### Grafisk fremstilling av tiltak for fjerning av lakselus per produksjonsområde
+
+```{r}
+#| label: graf av lakselus
+#| message: false
+#datene er konvertert til csv og importert med read_delim
+lakselus <- read_delim("tiltak_mot_lakselus.csv", delim = ",")
+
+lakselus$ProduksjonsområdeId <- factor(lakselus$ProduksjonsområdeId, levels = 1:12)
+
+lakselus_clean <- lakselus |> 
+  filter(!is.na(ProduksjonsområdeId), !is.na(Tiltak)) #filtrerer ut NA
+
+
+
+#plotter fragen
+lakselus_clean |> 
+  ggplot(aes(x = ProduksjonsområdeId, fill = Tiltak)) + 
+  geom_bar(position = "stack") +
+  scale_x_discrete(drop = FALSE, expand = expansion(mult = c(0, 0))) +  
+  labs(x = "Produksjonsområde ID", y = "Antall tiltak pr. fisk", fill = "Tiltak") +
+  theme_minimal()
+```
+
+### Tabell som viser antall tiltak for å fjerne lakselus per produksjonsområdeID
+
+```{r}
+#| label: lager tabell for lakselus
+#| message: false
+
+lakselus_summary <- lakselus_clean |> 
+  group_by(ProduksjonsområdeId, Tiltak) |> 
+  summarise(Antall = n(), .groups = "drop") |> 
+  complete(ProduksjonsområdeId = factor(1:12), Tiltak, fill = list(Antall = 0))
+
+lakselus_wider <- lakselus_summary |> 
+  pivot_wider(names_from = Tiltak, values_from = Antall, values_fill = 0)
+
+
+lakselus_wider |> 
+  gt() |> 
+  tab_header(
+    title = "Antall tiltak for å fjerne lakselus per produksjonsområdeID"
+  ) |> 
+  cols_label(
+    ProduksjonsområdeId = "Produksjonsområde ID",            
+    `mekanisk fjerning` = "Mekanisk fjerning",               
+    medikamentell = "Medikamentell fjerning",                
+    rensefisk = "Fjerning med rensefisk"                     
+  )
+```
+
+
+### Antall unike lokalitetsnumre per produksjonsområde per datasett
+
+```{r}
+#| label: finner unike lokalitetsnumre i hver produksjonsområde
+#| message: false
+
+
+# Telle antall unike lokalitetsnumre per produksjonsområde
+ant_lokalitetsnummerila <- ila_sorted |> 
+  group_by(ProduksjonsområdeId) |> 
+  summarise(AntallLokaliteter = n_distinct(Lokalitetsnummer)) |> 
+  arrange(ProduksjonsområdeId)
+
+#i ila-datasettet eksisrerer det to påvist/avsluttet som ikke er knyttet til et produksjonsområd. Jeg velger å ikke bruke disse da de ikke er tilknyttet produksjonsområdeID
+
+
+ant_lokalitetsnummerlakselus <- lakselus_clean |> 
+  group_by(ProduksjonsområdeId) |> 
+  summarise(AntallLokaliteter = n_distinct(Lokalitetsnummer)) |> 
+  arrange(ProduksjonsområdeId)
+
+
+ant_lokalitetsnummerila |> 
+  ggplot(aes(x = ProduksjonsområdeId, y = AntallLokaliteter)) +
+  geom_col() +
+  theme_minimal()+
+  labs(title = "Antall unike produksjonsområder per ProduksjonsområdeID i ILA-datasett",
+    x = "Produksjonsområde", y = "Antall lokaliteter")
+```
+
+
+```{r}
+# Telle antall unike lokalitetsnumre per produksjonsområde
+ant_lokalitetsnummerila <- ila_sorted |> 
+  group_by(ProduksjonsområdeId) |> 
+  summarise(AntallLokaliteter = n_distinct(Lokalitetsnummer)) |> 
+  arrange(ProduksjonsområdeId)
+
+#i ila-datasettet eksisrerer det to påvist/avsluttet som ikke er knyttet til et produksjonsområd. Jeg velger å ikke bruke disse da de ikke er tilknyttet produksjonsområdeID
+
+
+ant_lokalitetsnummerlakselus <- lakselus_clean |> 
+  group_by(ProduksjonsområdeId) |> 
+  summarise(AntallLokaliteter = n_distinct(Lokalitetsnummer)) |> 
+  arrange(ProduksjonsområdeId)
+
+
+ant_lokalitetsnummerila |> 
+  ggplot(aes(x = ProduksjonsområdeId, y = AntallLokaliteter)) +
+  geom_col() +
+  theme_minimal()+
+  labs(title = "Antall unike produksjonsområder per ProduksjonsområdeID i ILA-datasett",
+    x = "Produksjonsområde", y = "Antall lokaliteter")
+```
+
