@@ -6,7 +6,6 @@ editor: visual
 
 ## Grafisk fremstilling av forekomst av ILA og tiltak for fjerning av lakselus
 
-
 ```{r}
 #| label: setup of needed packagea
 #| message: false
@@ -41,8 +40,8 @@ ila_clean |>
   scale_x_discrete(drop = FALSE, expand = expansion(mult = c(0, 0))) +  
   labs(x = "Produksjonsområde ID", y = "Antall rapporterte tilfeller pr. fisk", fill = "Status") +
   theme_minimal()
-```
 
+```
 
 ### Grafisk fremstilling av tiltak for fjerning av lakselus per produksjonsområde
 
@@ -64,12 +63,12 @@ lakselus_clean |>
   scale_x_discrete(drop = FALSE, expand = expansion(mult = c(0, 0))) +  
   labs(x = "Produksjonsområde ID", y = "Antall tiltak pr. fisk", fill = "Tiltak") +
   theme_minimal()
+
+
 ```
 
 
-
-
-Prøver å kombinere de to datasettene for å få grafene på siden av hverandre - for å enklere kunne se korrelasjonen. 
+Prøver å kombinere de to datasettene for å få grafene på siden av hverandre - for å enklere kunne se korrelasjonen.
 
 ```{r}
 #| label: grafene stilles opp mot hverandre
@@ -105,7 +104,9 @@ combined_graph <- combined_data |>
 print(combined_graph)
 
 ```
+
 ### Tabell som viser antall tiltak for å fjerne lakselus per produksjonsområdeID
+
 ```{r}
 #| label: lager tabell for lakselus
 #| message: false
@@ -131,11 +132,6 @@ lakselus_wider |>
     rensefisk = "Fjerning med rensefisk" )
 
 ```
-
-
-
-
-
 
 ### Tabell som viser de ulike rapportere statusene av ILA per produksjonsområde
 
@@ -165,8 +161,6 @@ ila_pivot |>
     Avsluttet = "Asluttet behandling av ILA"
   )
 ```
-
-
 
 ### Antall unike lokalitetsnumre per produksjonsområde per datasett
 
@@ -204,13 +198,12 @@ ant_lokalitetsnummerlakselus |>
     x = "ProduksjonsområdeID", y = "Antall lokaliteter")
 ```
 
-
 For begge tabellene hadde det vært interessant å regnet ut antall tilfeller av ILA totalt, delt på antall tilfeller i hver produksjonsområde opp mot antall unike lokalitetsnumre? Videre gjøre noe av det samme med å dele antall påviste tilfeller av lakselus og dele opp mot antall per produksjonsområde
 
-
 ### Regner ut på lakselus datasett
+
 ```{r}
-#| label: regner ut prosentvis informasjon opp mot lokalitetsnumre laksel
+#| label: regner ut prosentvis informasjon opp mot lokalitetsnumre lakselus
 #| message: false
 sum_fjerning <- lakselus_summary |> 
   summarise(total_fjerning = sum(Antall)) #sum totale tiltak
@@ -241,10 +234,10 @@ total_fjerning_with_lokaliteter |>
 
 ### Regner ut på ILA datasett
 
-
-
 ```{r}
-
+#| label: regner ut prosentvis informasjon opp mot lokalitetsnumre ila
+#| message: false
+#| 
 # Summere totale positive statuser
 sum_positiv <- ila_pivot |> 
   summarise(total_positiv = sum(Påvist))
@@ -260,7 +253,8 @@ total_positiv <- sum_positiv_pr_id |>
   mutate(percentage = (total_positiv_pr_id / sum_positiv$total_positiv) * 100)
 
 total_positiv_med_lokaliteter <- total_positiv |> 
-  left_join(ant_lokalitetsnummerila, by = "ProduksjonsområdeId")
+  left_join(ant_lokalitetsnummerila, by = "ProduksjonsområdeId") |> 
+  drop_na()
 
 total_positiv_med_lokaliteter |> 
   gt() |> 
@@ -273,14 +267,53 @@ total_positiv_med_lokaliteter |>
     percentage = "Prosent tilfeller med ILA ",
     AntallLokaliteter = "Antall lokaliteter i produksjonsområde"
   )
-  
-
-
             
+```
+
+```{r}
+#| label: kombinerer alt i samme tabell
+#| message: false
+
+
+combined_data <- total_fjerning_with_lokaliteter |> 
+  full_join(total_positiv_med_lokaliteter, by = "ProduksjonsområdeId") #kombinerer datasettene
+
+
+combined_data |> 
+  gt() |> 
+  tab_header(
+    title = "Number of cases of ILA and efforts to remove salmonlice per production ID"
+  ) |> 
+  cols_label(
+    ProduksjonsområdeId = "Production area ID",
+    total_fjerning_pr_id = "Number of efforts made for salmon lice",
+    percentage.x = "% of efforts",
+    AntallLokaliteter.x = "Number of uniqe locations (salmon lice)",
+    total_positiv_pr_id = "Number of positive cases of ILA",
+    percentage.y = "% cases ofILA",
+    AntallLokaliteter.y = "Number of unique locations (ILA)"
+  )
+
 ```
 
 
 
 
+```{r}
+#| label: tabell med de unike lokalsjonsnumrene per produksjonsområde id
+#| message: false
+lokalitetsnummer_joined <- ant_lokalitetsnummerlakselus |> 
+  left_join(ant_lokalitetsnummerila, by ="ProduksjonsområdeId")
 
+lokalitetsnummer_joined |> 
+  gt() |> 
+  tab_header(
+    title = "Number of uniqe localites per production area"
+  ) |> 
+  cols_label(
+    ProduksjonsområdeId = "Production area ID",
+    AntallLokaliteter.x = "Number of uniqe localities in the lice-dataset",
+    AntallLokaliteter.y = "Number of unique localiteis in the ILA-dataset"
+  )
+```
 
