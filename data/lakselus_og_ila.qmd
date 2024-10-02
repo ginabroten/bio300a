@@ -67,7 +67,6 @@ lakselus_clean |>
 
 ```
 
-
 Prøver å kombinere de to datasettene for å få grafene på siden av hverandre - for å enklere kunne se korrelasjonen.
 
 ```{r}
@@ -200,6 +199,9 @@ ant_lokalitetsnummerlakselus |>
 
 For begge tabellene hadde det vært interessant å regnet ut antall tilfeller av ILA totalt, delt på antall tilfeller i hver produksjonsområde opp mot antall unike lokalitetsnumre? Videre gjøre noe av det samme med å dele antall påviste tilfeller av lakselus og dele opp mot antall per produksjonsområde
 
+
+
+
 ### Regner ut på lakselus datasett
 
 ```{r}
@@ -296,9 +298,6 @@ combined_data |>
 
 ```
 
-
-
-
 ```{r}
 #| label: tabell med de unike lokalsjonsnumrene per produksjonsområde id
 #| message: false
@@ -315,5 +314,67 @@ lokalitetsnummer_joined |>
     AntallLokaliteter.x = "Number of uniqe localities in the lice-dataset",
     AntallLokaliteter.y = "Number of unique localiteis in the ILA-dataset"
   )
+```
+
+```{r}
+#| label: prosentvis andel av de ulike metodene for fjerning av lakselus
+#| message: false
+
+prosent_lakselus <- lakselus_wider |> 
+  left_join(sum_fjerning_pr_id, by = "ProduksjonsområdeId")
+
+prosentvis_lakselus <- prosent_lakselus |> 
+  mutate(medikamentell = (medikamentell / total_fjerning_pr_id) * 100) |> 
+  mutate(`mekanisk fjerning` = (`mekanisk fjerning` / total_fjerning_pr_id) * 100) |> 
+  mutate(rensefisk = (rensefisk / total_fjerning_pr_id) * 100)
+
+prosentvis_lakselus |> 
+  gt() |> 
+  tab_header(
+    title = "Percentage of the different methos used to remove salmonlice"
+  )
+
+
+  
+```
+
+
+
+
+
+```{r}
+
+
+#| label: prosentvis andel av de ulike metodene for fjerning av lakselus pluss isa data
+#| message: false
+
+
+prosentfordeling <- prosentvis_lakselus |> 
+  left_join(total_positiv_med_lokaliteter, by = "ProduksjonsområdeId")
+
+
+
+prosentfordeling |> 
+  mutate(positiv_pr_uniklokasjon = (AntallLokaliteter / total_positiv_pr_id ) * 100) 
+#syns ved kun legge til de positive ikke gir et godt bilde - min ide er å dele antallet positive på antall lokasjoner? kansje det kan gi et bedre bilde? 
+
+
+prosentfordeling |> 
+  gt() |> 
+  tab_header(
+    title = "Percentage of the different methods to remove salmon louse and the prevalence of ISA per production area ID and location"
+  ) |> 
+  cols_label(
+    ProduksjonsområdeId = "Production ID",
+    medikamentell = "% medicinal removal",
+    `mekanisk fjerning` = "% mechanical removal",
+    rensefisk = "% cleaner fish",
+    total_fjerning_pr_id = "Number of removals",
+    total_positiv_pr_id = "Positive cases of ISA",
+    percentage = "% of ISA",
+    AntallLokaliteter = "Uniqe locations"
+  )
+
+
 ```
 
