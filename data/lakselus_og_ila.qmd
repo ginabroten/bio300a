@@ -378,3 +378,27 @@ prosentfordeling |>
 
 ```
 
+```{r}
+#| label: prosentvis andel av isa per lokasjonsid
+#| message: false
+
+ila_lokasjon <- ila_sorted |> 
+  group_by(Lokalitetsnummer) |> 
+  filter(Status == "Påvist") |> 
+  summarise(Antall = n())
+
+
+ila_positive <- ila_lokasjon |> 
+  summarise(sum_positive = sum(Antall)) #summere totale positive totalt
+
+
+total_positive <- ila_positive$sum_positive #tekker ut verdien av `sum_positive` som en enkelt verdi
+
+farm_rate <- ila_lokasjon |> 
+  mutate(per_farmrate = (Antall / total_positive) * 100) #per farm anemia
+
+
+farm_rate
+
+```
+
