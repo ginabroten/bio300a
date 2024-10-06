@@ -173,6 +173,8 @@ ant_lokalitetsnummerila <- ila_sorted |>
   summarise(AntallLokaliteter = n_distinct(Lokalitetsnummer)) |> 
   arrange(ProduksjonsområdeId)
 
+total_sum_locations_ila <- sum(ant_lokalitetsnummerila$AntallLokaliteter, na.rm = TRUE) #sum unike lokalitetsnumre
+
 #i ila-datasettet eksisrerer det to påvist/avsluttet som ikke er knyttet til et produksjonsområd. Jeg velger å ikke bruke disse da de ikke er tilknyttet produksjonsområdeID
 
 
@@ -180,6 +182,10 @@ ant_lokalitetsnummerlakselus <- lakselus_clean |>
   group_by(ProduksjonsområdeId) |> 
   summarise(AntallLokaliteter = n_distinct(Lokalitetsnummer)) |> 
   arrange(ProduksjonsområdeId)
+
+
+
+total_sum_locations_lakselus <- sum(ant_lokalitetsnummerlakselus$AntallLokaliteter, na.rm = TRUE) #sum unike lokalitetsnumre
 
 
 ant_lokalitetsnummerila |> 
@@ -198,9 +204,6 @@ ant_lokalitetsnummerlakselus |>
 ```
 
 For begge tabellene hadde det vært interessant å regnet ut antall tilfeller av ILA totalt, delt på antall tilfeller i hver produksjonsområde opp mot antall unike lokalitetsnumre? Videre gjøre noe av det samme med å dele antall påviste tilfeller av lakselus og dele opp mot antall per produksjonsområde
-
-
-
 
 ### Regner ut på lakselus datasett
 
@@ -276,6 +279,8 @@ total_positiv_med_lokaliteter |>
 #| label: kombinerer alt i samme tabell
 #| message: false
 
+unique_lokaliteter_sum <- combined_data |> 
+  summarise(total_unique_lokaliteter = n_distinct(AntallLokaliteter))
 
 combined_data <- total_fjerning_with_lokaliteter |> 
   full_join(total_positiv_med_lokaliteter, by = "ProduksjonsområdeId") #kombinerer datasettene
@@ -304,6 +309,7 @@ combined_data |>
 lokalitetsnummer_joined <- ant_lokalitetsnummerlakselus |> 
   left_join(ant_lokalitetsnummerila, by ="ProduksjonsområdeId")
 
+
 lokalitetsnummer_joined |> 
   gt() |> 
   tab_header(
@@ -326,7 +332,9 @@ prosent_lakselus <- lakselus_wider |>
 prosentvis_lakselus <- prosent_lakselus |> 
   mutate(medikamentell = (medikamentell / total_fjerning_pr_id) * 100) |> 
   mutate(`mekanisk fjerning` = (`mekanisk fjerning` / total_fjerning_pr_id) * 100) |> 
-  mutate(rensefisk = (rensefisk / total_fjerning_pr_id) * 100)
+  mutate(rensefisk = (rensefisk / total_fjerning_pr_id) * 100) |> 
+ 
+
 
 prosentvis_lakselus |> 
   gt() |> 
@@ -337,10 +345,6 @@ prosentvis_lakselus |>
 
   
 ```
-
-
-
-
 
 ```{r}
 
@@ -401,4 +405,40 @@ farm_rate <- ila_lokasjon |>
 farm_rate
 
 ```
+
+For å regne ut proportions for fordelingen må vi vite at:
+    The sample is randomly selected
+    There is only two options:
+        Being in the category
+        Not being in the category
+    The sample needs at least:
+        5 members in the category
+        5 members not in the category
+```{r}
+#| label: proposjoner og p-verdi for ila datasett
+#| message: false
+
+#punktestimat for ila
+
+total_locations = 1758 #hentet fra barentswatch
+confidence_level = 0.95
+alpha = 1- confidence_level
+critical_z_ila = qnorm(1-alpha/2)
+
+ila_proportion = (total_sum_locations_ila/total_locations)
+
+lakselus_proportion = (total_sum_locations_lakselus/total_locations)
+
+std_err_ila = critical_z_ila * (sqrt(ila_proportion*(1-ila_proportion)/total_locations))
+
+margin_of_err_ila = critical_z_ila * std_err_ila
+
+lower_bound_ila = ila_proportion - margin_of_err_ila
+upper_bound_ila = ila_proportion + margin_of_err_ila
+
+
+
+
+```
+
 
