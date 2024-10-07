@@ -488,8 +488,24 @@ lakselus_proposjoner <- lakselus_wider |>
 lakselus_proposjoner_ila <- lakselus_proposjoner |> 
   left_join(sum_positiv_pr_id, by = "ProduksjonsområdeId")
 
-lakselus_proposjoner_ila |> 
-  gt() 
+lakselus_proposjoner_alt <- lakselus_proposjoner_ila |> 
+  mutate(gjsnit_positiv_pranlegger = (total_positiv_pr_id /propsjoner_gjennomsnitt$AntallAnlegg))
+
+
+lakselus_proposjoner_alt |> 
+  gt() |> 
+  cols_label(
+    ProduksjonsområdeId = "Area ID",
+    medikamentell = "Medicinal",
+    `mekanisk fjerning` = "Mechanical",
+    rensefisk = "Cleaner fish",
+    medikamentell_pr_anlegg = "Medicnal per farm",
+    mekanisk_pr_anlegg = "Mechanical per farm",
+    rensefisk_pr_anlegg = "Cleaner fish per farm",
+    total_positiv_pr_id = "ISA positive",
+    gjsnit_positiv_pranlegger ="ISA positive per farm"
+  )
+
 
 ```
 
@@ -559,19 +575,33 @@ ggplot(data = lakselus_proposjoner, aes(x = ProduksjonsområdeId, y = mekanisk_p
 #| label: de tre tiltakene i en graf
 #| message: false
 
-
-# Omstrukturere data til langt format
-lakselus_long <- lakselus_proposjoner |> 
+# Restructure data to long format
+lakselus_long <- lakselus_proposjoner |>  
   pivot_longer(cols = c(medikamentell_pr_anlegg, rensefisk_pr_anlegg, mekanisk_pr_anlegg), 
                names_to = "Tiltak", 
                values_to = "Verdi")
 
-# Lag ggplot med facet_wrap etter ProduksjonsområdeId
-ggplot(data = lakselus_long, aes(x = ProduksjonsområdeId, y = Verdi, fill = Tiltak)) +
-  geom_col(position = "dodge") +  # Side om side barer
-  facet_wrap(~ Tiltak, scales = "free_y") +  # Facet basert på tiltak
-  labs(x = "ProduksjonsområdeId", y = "Verdi per anlegg", fill = "Tiltak") +
+# Rename and mutate the 'lakselus_long' data frame
+lakselus_english <- lakselus_long |> 
+  rename(`Method of removal` = Tiltak) |> 
+  mutate(
+    `Method of removal` = case_when(
+      `Method of removal` %in% c("medikamentell_pr_anlegg") ~ "Medicinal", 
+      `Method of removal` %in% c("mekanisk_pr_anlegg") ~ "Mechanical",
+      `Method of removal` %in% c("rensefisk_pr_anlegg") ~ "Cleaner fish",
+      TRUE ~ `Method of removal`  # Ensure consistent use of backticks
+    )
+  )
+
+# Create ggplot with facet_wrap by ProduksjonsområdeId
+ggplot(data = lakselus_english, aes(x = ProduksjonsområdeId, y = Verdi, fill = `Method of removal`)) +  # Corrected backticks
+  geom_col(position = "dodge") +  # Side by side bars
+  facet_wrap(~ `Method of removal`, scales = "free_y") +  # Facet based on 'Method of removal'
+  labs(x = "Production Id", y = "Efforts per fish farm", fill = "Efforts") +
   theme_minimal()
+
+
+
 
 ```
 
