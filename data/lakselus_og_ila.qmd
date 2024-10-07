@@ -279,8 +279,7 @@ total_positiv_med_lokaliteter |>
 #| label: kombinerer alt i samme tabell
 #| message: false
 
-unique_lokaliteter_sum <- combined_data |> 
-  summarise(total_unique_lokaliteter = n_distinct(AntallLokaliteter))
+
 
 combined_data <- total_fjerning_with_lokaliteter |> 
   full_join(total_positiv_med_lokaliteter, by = "ProduksjonsområdeId") #kombinerer datasettene
@@ -332,7 +331,7 @@ prosent_lakselus <- lakselus_wider |>
 prosentvis_lakselus <- prosent_lakselus |> 
   mutate(medikamentell = (medikamentell / total_fjerning_pr_id) * 100) |> 
   mutate(`mekanisk fjerning` = (`mekanisk fjerning` / total_fjerning_pr_id) * 100) |> 
-  mutate(rensefisk = (rensefisk / total_fjerning_pr_id) * 100) |> 
+  mutate(rensefisk = (rensefisk / total_fjerning_pr_id) * 100)  
  
 
 
@@ -406,14 +405,8 @@ farm_rate
 
 ```
 
-For å regne ut proportions for fordelingen må vi vite at:
-    The sample is randomly selected
-    There is only two options:
-        Being in the category
-        Not being in the category
-    The sample needs at least:
-        5 members in the category
-        5 members not in the category
+For å regne ut proportions for fordelingen må vi vite at: The sample is randomly selected There is only two options: Being in the category Not being in the category The sample needs at least: 5 members in the category 5 members not in the category
+
 ```{r}
 #| label: proposjoner og p-verdi for ila datasett
 #| message: false
@@ -440,5 +433,3 @@ upper_bound_ila = ila_proportion + margin_of_err_ila
 
 
 ```
-
-
