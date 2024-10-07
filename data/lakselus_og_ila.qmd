@@ -30,7 +30,6 @@ ila_sorted <- ila_import |>
 
 ila_sorted$ProduksjonsområdeId <- factor(ila_sorted$ProduksjonsområdeId, levels = 1:12) #konverterer til faktorer, ettersom fra produksjonsområdene er det ikke rapportert noe fra 1
 
-
 ila_clean <- ila_sorted[!is.na(ila_sorted$ProduksjonsområdeId), ] #fjerner NA-verdier
 
 
@@ -67,6 +66,7 @@ lakselus_clean |>
 
 ```
 
+## Kombinert data
 Prøver å kombinere de to datasettene for å få grafene på siden av hverandre - for å enklere kunne se korrelasjonen.
 
 ```{r}
@@ -135,7 +135,7 @@ lakselus_wider |>
 ### Tabell som viser de ulike rapportere statusene av ILA per produksjonsområde
 
 ```{r}
-#| label:  lager tabell med ila
+#| label:  lager tabell med ila per produksjonsområde
 #| message: false
 
 ila_summary <- ila_sorted |> 
@@ -184,28 +184,13 @@ ant_lokalitetsnummerlakselus <- lakselus_clean |>
   arrange(ProduksjonsområdeId)
 
 
-
 total_sum_locations_lakselus <- sum(ant_lokalitetsnummerlakselus$AntallLokaliteter, na.rm = TRUE) #sum unike lokalitetsnumre
 
-
-ant_lokalitetsnummerila |> 
-  ggplot(aes(x = ProduksjonsområdeId, y = AntallLokaliteter)) +
-  geom_col() +
-  theme_minimal()+
-  labs(title = "Antall unike produksjonsområder per ProduksjonsområdeID i ILA-datasett",
-    x = "ProduksjonsområdeID", y = "Antall lokaliteter")
-
-ant_lokalitetsnummerlakselus |> 
-  ggplot(aes(x = ProduksjonsområdeId, y = AntallLokaliteter)) +
-  geom_col() +
-  theme_minimal()+
-  labs(title = "Antall unike produksjonsområder per ProduksjonsområdeID i lakselus-datasett",
-    x = "ProduksjonsområdeID", y = "Antall lokaliteter")
 ```
 
 For begge tabellene hadde det vært interessant å regnet ut antall tilfeller av ILA totalt, delt på antall tilfeller i hver produksjonsområde opp mot antall unike lokalitetsnumre? Videre gjøre noe av det samme med å dele antall påviste tilfeller av lakselus og dele opp mot antall per produksjonsområde
 
-### Regner ut på lakselus datasett
+### Regner ut totalt antall tilfeller på lakselus datasett
 
 ```{r}
 #| label: regner ut prosentvis informasjon opp mot lokalitetsnumre lakselus
@@ -237,7 +222,7 @@ total_fjerning_with_lokaliteter |>
   )
 ```
 
-### Regner ut på ILA datasett
+### Regner ut prosentvis frekvens i ILA datasett
 
 ```{r}
 #| label: regner ut prosentvis informasjon opp mot lokalitetsnumre ila
@@ -275,10 +260,11 @@ total_positiv_med_lokaliteter |>
             
 ```
 
-```{r}
-#| label: kombinerer alt i samme tabell
-#| message: false
 
+## Kombinert data 
+```{r}
+#| label: antall tilfeller av ila og metoder for å fjerne ila per produksjonsid
+#| message: false
 
 
 combined_data <- total_fjerning_with_lokaliteter |> 
@@ -346,9 +332,7 @@ prosentvis_lakselus |>
 ```
 
 ```{r}
-
-
-#| label: prosentvis andel av de ulike metodene for fjerning av lakselus pluss isa data
+#| label: prosentvis andel av de ulike metodene for fjerning av lakselus pluss ila data, og antall unike lokasjoner
 #| message: false
 
 
@@ -399,11 +383,36 @@ total_positive <- ila_positive$sum_positive #tekker ut verdien av `sum_positive`
 
 farm_rate <- ila_lokasjon |> 
   mutate(per_farmrate = (Antall / total_positive) * 100) #per farm anemia
+```
 
 
-farm_rate
+
+## Statistiske tester
+
+
+```{r}
+#| label: korrelasjonsanalyse for de ulike metodene for fjerning og ila
+#| message: false
+
+#tester Pearson correlation test for å se om det er en korrelasjon mellom de tre forskjellige metodene for fjerning av lakselus og ila
+
+
+clean_data <- prosentfordeling %>% filter(!is.na(percentage)) #fjerner tomme rader, her vil det ikke være en korrelasjon
+
+
+methods <- c("medikamentell", "mekanisk fjerning", "rensefisk") #pearson correlation test
+
+for (method in methods) {
+  result <- cor.test(clean_data[[method]], clean_data$percentage)
+  cat("Correlation between", method, "and % ISA:\n")
+  cat("Correlation coefficient:", result$estimate, "\n")
+  cat("P-value:", result$p.value, "\n\n")
+}
 
 ```
+
+Det er ingen korrelasjon mellom de ulike metodene som er signifikant, det eneste som kan nevnes er at medikamentell fjerning er svakt positiv - men ikke statisitisk signifikant. Men interessant. 
+
 
 For å regne ut proportions for fordelingen må vi vite at: The sample is randomly selected There is only two options: Being in the category Not being in the category The sample needs at least: 5 members in the category 5 members not in the category
 
@@ -428,8 +437,5 @@ margin_of_err_ila = critical_z_ila * std_err_ila
 
 lower_bound_ila = ila_proportion - margin_of_err_ila
 upper_bound_ila = ila_proportion + margin_of_err_ila
-
-
-
 
 ```
