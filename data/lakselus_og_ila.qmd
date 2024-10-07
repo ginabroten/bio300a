@@ -4,6 +4,7 @@ format: html
 editor: visual
 ---
 
+
 ## Grafisk fremstilling av forekomst av ILA og tiltak for fjerning av lakselus
 
 ```{r}
@@ -14,6 +15,7 @@ library(readr)
 library(dplyr)
 library(tidyr)
 library(gt)
+
 ```
 
 ### Grafisk fremstilling av forekomsten av ILA per produksjonsområde
@@ -67,6 +69,7 @@ lakselus_clean |>
 ```
 
 ## Kombinert data
+
 Prøver å kombinere de to datasettene for å få grafene på siden av hverandre - for å enklere kunne se korrelasjonen.
 
 ```{r}
@@ -260,8 +263,8 @@ total_positiv_med_lokaliteter |>
             
 ```
 
+## Kombinert data
 
-## Kombinert data 
 ```{r}
 #| label: antall tilfeller av ila og metoder for å fjerne ila per produksjonsid
 #| message: false
@@ -385,10 +388,7 @@ farm_rate <- ila_lokasjon |>
   mutate(per_farmrate = (Antall / total_positive) * 100) #per farm anemia
 ```
 
-
-
 ## Statistiske tester
-
 
 ```{r}
 #| label: korrelasjonsanalyse for de ulike metodene for fjerning og ila
@@ -411,8 +411,7 @@ for (method in methods) {
 
 ```
 
-Det er ingen korrelasjon mellom de ulike metodene som er signifikant, det eneste som kan nevnes er at medikamentell fjerning er svakt positiv - men ikke statisitisk signifikant. Men interessant. 
-
+Det er ingen korrelasjon mellom de ulike metodene som er signifikant, det eneste som kan nevnes er at medikamentell fjerning er svakt positiv - men ikke statisitisk signifikant. Men interessant.
 
 For å regne ut proportions for fordelingen må vi vite at: The sample is randomly selected There is only two options: Being in the category Not being in the category The sample needs at least: 5 members in the category 5 members not in the category
 
@@ -439,3 +438,157 @@ lower_bound_ila = ila_proportion - margin_of_err_ila
 upper_bound_ila = ila_proportion + margin_of_err_ila
 
 ```
+
+
+
+
+## Test av lakselus pr uke datasett for å finne ut antall anlegg
+
+```{r}
+#| label: henter ut alle datasett totalt
+#| message: false
+lakselus_pr_uke <- read_delim("lakselus_per_fisk.csv", delim = ",")
+
+lakselus_pr_uke_sortert <- lakselus_pr_uke |> 
+  group_by(ProduksjonsområdeId) |> 
+  summarise(AntallAnlegg = n_distinct(Lokalitetsnummer)) |> 
+   drop_na()
+
+lakselus_pr_uke_sortert$ProduksjonsområdeId <- as.factor(lakselus_pr_uke_sortert$ProduksjonsområdeId)
+
+total_localities_all <- lakselus_pr_uke_sortert |> 
+  left_join(lokalitetsnummer_joined, by = "ProduksjonsområdeId") |> 
+  filter(ProduksjonsområdeId != 13) #driter i rad 13
+
+
+```
+
+## Proposjoner!!!
+
+```{r}
+#| label: regner ut proposjoner og får det i en tabell
+#| message: false
+proposjoner <- lakselus_pr_uke_sortert |> 
+  left_join(sum_positiv_pr_id, by = "ProduksjonsområdeId") |> 
+  left_join(sum_fjerning_pr_id, by = "ProduksjonsområdeId") |> 
+  filter(ProduksjonsområdeId != 13) #driter i rad 13
+
+
+propsjoner_gjennomsnitt <- proposjoner |> 
+  mutate(gjsnit_positiv_pranlegg = (total_positiv_pr_id /AntallAnlegg)) |> 
+  mutate(gjsnit_fjerning_pranlegg = (total_fjerning_pr_id /AntallAnlegg)) 
+
+
+lakselus_proposjoner <- lakselus_wider |> 
+  mutate(medikamentell_pr_anlegg = (medikamentell / proposjoner$AntallAnlegg)) |> 
+  mutate(mekanisk_pr_anlegg = (`mekanisk fjerning` /proposjoner$AntallAnlegg)) |> 
+  mutate(rensefisk_pr_anlegg = (rensefisk / proposjoner$AntallAnlegg))
+
+
+lakselus_proposjoner_ila <- lakselus_proposjoner |> 
+  left_join(sum_positiv_pr_id, by = "ProduksjonsområdeId")
+
+lakselus_proposjoner_ila |> 
+  gt() 
+
+```
+
+
+
+```{r}
+#| label: plotter proposjoner
+#| message: false
+#plotter propsjonene
+
+ggplot(data = propsjoner_gjennomsnitt, aes(x = ProduksjonsområdeId, y = gjsnit_positiv_pranlegg)) +
+  geom_col() + #(fill = viridis(1, option = "D")) 
+  theme_minimal()+
+  labs(title = "Mean positive cases of ISA per fish farm",
+       x = "Production ID",
+       y = "Mean positive cases of ISA")
+
+ggplot(data = propsjoner_gjennomsnitt, aes(x = ProduksjonsområdeId, y = gjsnit_fjerning_pranlegg)) +
+  geom_col () + #(fill = viridis(1, option = "C")) +
+  theme_minimal() + labs(title = "Mean efforts to remove salmon lice per fish farm",
+       x = "Production ID",
+       y = "Mean efforts made per farm")
+
+
+
+```
+
+
+```{r}
+#| label: korrelasjon proposjoner mellom antall fjerninger og positive prøver
+#| message: false
+
+
+# Beregne Pearson korrelasjon mellom totalt antall fjerninger og positive prøver
+cor_test_fjerning_vs_positiv <- cor.test(
+  propsjoner_gjennomsnitt$total_positiv_pr_id, 
+  propsjoner_gjennomsnitt$total_fjerning_pr_id, 
+  method = "pearson"
+)
+
+# Skriv ut resultatet av korrelasjonstesten
+print(cor_test_fjerning_vs_positiv)
+
+
+```
+
+
+
+```{r}
+#| label: ggplot for de tre tiltakene
+#| message: false
+#lager ggplot som viser de tre tilakene
+
+ggplot(data = lakselus_proposjoner, aes(x = ProduksjonsområdeId, y = medikamentell_pr_anlegg))+
+  geom_col()
+
+
+ggplot(data = lakselus_proposjoner, aes(x = ProduksjonsområdeId, y = rensefisk_pr_anlegg))+
+  geom_col()
+
+ggplot(data = lakselus_proposjoner, aes(x = ProduksjonsområdeId, y = mekanisk_pr_anlegg))+
+  geom_col()
+```
+
+```{r}
+
+#| label: de tre tiltakene i en graf
+#| message: false
+
+
+# Omstrukturere data til langt format
+lakselus_long <- lakselus_proposjoner |> 
+  pivot_longer(cols = c(medikamentell_pr_anlegg, rensefisk_pr_anlegg, mekanisk_pr_anlegg), 
+               names_to = "Tiltak", 
+               values_to = "Verdi")
+
+# Lag ggplot med facet_wrap etter ProduksjonsområdeId
+ggplot(data = lakselus_long, aes(x = ProduksjonsområdeId, y = Verdi, fill = Tiltak)) +
+  geom_col(position = "dodge") +  # Side om side barer
+  facet_wrap(~ Tiltak, scales = "free_y") +  # Facet basert på tiltak
+  labs(x = "ProduksjonsområdeId", y = "Verdi per anlegg", fill = "Tiltak") +
+  theme_minimal()
+
+```
+
+
+```{r}
+#| label: korrelasjon proposjoner mellom tiltakene og positive prøver
+#| message: false
+#| 
+kor_test_medikamentell <- cor.test(lakselus_proposjoner_ila$total_positiv_pr_id, lakselus_proposjoner_ila$medikamentell_pr_anlegg)
+print(kor_test_medikamentell)
+
+# Korrelasjonstest med total_positiv_pr_id for mekanisk_pr_anlegg
+kor_test_mekanisk <- cor.test(lakselus_proposjoner_ila$total_positiv_pr_id, lakselus_proposjoner_ila$mekanisk_pr_anlegg)
+print(kor_test_mekanisk)
+
+# Korrelasjonstest med total_positiv_pr_id for rensefisk_pr_anlegg
+kor_test_rensefisk <- cor.test(lakselus_proposjoner_ila$total_positiv_pr_id, lakselus_proposjoner_ila$rensefisk_pr_anlegg)
+print(kor_test_rensefisk)
+```
+
