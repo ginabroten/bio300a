@@ -4,7 +4,6 @@ format: html
 editor: visual
 ---
 
-
 ## Grafisk fremstilling av forekomst av ILA og tiltak for fjerning av lakselus
 
 ```{r}
@@ -439,9 +438,6 @@ upper_bound_ila = ila_proportion + margin_of_err_ila
 
 ```
 
-
-
-
 ## Test av lakselus pr uke datasett for å finne ut antall anlegg
 
 ```{r}
@@ -509,8 +505,6 @@ lakselus_proposjoner_alt |>
 
 ```
 
-
-
 ```{r}
 #| label: plotter proposjoner
 #| message: false
@@ -533,7 +527,6 @@ ggplot(data = propsjoner_gjennomsnitt, aes(x = ProduksjonsområdeId, y = gjsnit_
 
 ```
 
-
 ```{r}
 #| label: korrelasjon proposjoner mellom antall fjerninger og positive prøver
 #| message: false
@@ -551,8 +544,6 @@ print(cor_test_fjerning_vs_positiv)
 
 
 ```
-
-
 
 ```{r}
 #| label: ggplot for de tre tiltakene
@@ -605,7 +596,6 @@ ggplot(data = lakselus_english, aes(x = ProduksjonsområdeId, y = Verdi, fill = 
 
 ```
 
-
 ```{r}
 #| label: korrelasjon proposjoner mellom tiltakene og positive prøver
 #| message: false
@@ -620,5 +610,119 @@ print(kor_test_mekanisk)
 # Korrelasjonstest med total_positiv_pr_id for rensefisk_pr_anlegg
 kor_test_rensefisk <- cor.test(lakselus_proposjoner_ila$total_positiv_pr_id, lakselus_proposjoner_ila$rensefisk_pr_anlegg)
 print(kor_test_rensefisk)
+```
+
+
+
+
+```{r fig.width=50, fig.height=25}
+# Kombiner data
+combined_data <- propsjoner_gjennomsnitt |> 
+  select(ProduksjonsområdeId, gjsnit_positiv_pranlegg, gjsnit_fjerning_pranlegg) |> 
+  left_join(lakselus_proposjoner |> 
+              select(ProduksjonsområdeId, medikamentell_pr_anlegg, mekanisk_pr_anlegg, rensefisk_pr_anlegg),
+            by = "ProduksjonsområdeId") 
+
+# Pivot data for facet wrapping
+combined_long <- combined_data |> 
+  pivot_longer(cols = c(gjsnit_positiv_pranlegg, gjsnit_fjerning_pranlegg, 
+                        medikamentell_pr_anlegg, mekanisk_pr_anlegg, rensefisk_pr_anlegg), 
+               names_to = "Tiltak", 
+               values_to = "Verdi")
+
+# Gi mer forståelige navn til variablene
+combined_long <- combined_long |> 
+  mutate(
+    Tiltak = case_when(
+      Tiltak == "gjsnit_positiv_pranlegg" ~ "Mean positive ISA cases",
+      Tiltak == "gjsnit_fjerning_pranlegg" ~ "Mean salmon lice removal efforts",
+      Tiltak == "medikamentell_pr_anlegg" ~ "Mean medicinal efforts",
+      Tiltak == "mekanisk_pr_anlegg" ~ "Mean mechanical efforts",
+      Tiltak == "rensefisk_pr_anlegg" ~ "Mean cleaner fish efforts",
+      TRUE ~ Tiltak
+    )
+  )
+
+# Plot med facet_wrap basert på 'Tiltak'
+ggplot(data = combined_long, aes(x = ProduksjonsområdeId, y = Verdi, fill = Tiltak)) +
+  geom_col(position = "dodge") +  # Side-by-side bars
+  facet_wrap(~ Tiltak, scales = "free_y") +  # Facet basert på type tiltak
+  labs(
+       x = "Production Area ID",
+       y = "Efforts / Cases",
+       fill = "Type of Effort") +
+  theme_minimal() +
+  scale_fill_viridis_d()+
+ theme(
+    plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),  # Larger title text
+    axis.title.x = element_text(size = 16),  # Larger x-axis label
+    axis.title.y = element_text(size = 16),  # Larger y-axis label
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),  # Larger x-axis text with rotation
+    axis.text.y = element_text(size = 14),  # Larger y-axis text
+    legend.position = "bottom",  # Move legend to the bottom
+    legend.text = element_text(size = 16),  # Increase legend text size
+    legend.title = element_text(size = 18, face = "bold"),  # Larger legend title
+    legend.key.size = unit(2, "cm"),  # Increase size of legend keys
+    legend.spacing.x = unit(1, 'cm'),  # Add more space between legend items
+    strip.text = element_text(size = 18, face = "bold")  # Larger facet labels
+  )
+
+
+
+```
+```{r}
+# Kombiner data
+combined_data <- propsjoner_gjennomsnitt |> 
+  select(ProduksjonsområdeId, gjsnit_positiv_pranlegg, gjsnit_fjerning_pranlegg) |> 
+  left_join(lakselus_proposjoner |> 
+              select(ProduksjonsområdeId, medikamentell_pr_anlegg, mekanisk_pr_anlegg, rensefisk_pr_anlegg),
+            by = "ProduksjonsområdeId") 
+
+# Pivot data for facet wrapping
+combined_long <- combined_data |> 
+  pivot_longer(cols = c(gjsnit_positiv_pranlegg, gjsnit_fjerning_pranlegg, 
+                        medikamentell_pr_anlegg, mekanisk_pr_anlegg, rensefisk_pr_anlegg), 
+               names_to = "Tiltak", 
+               values_to = "Verdi")
+
+# Gi mer forståelige og kortere navn til variablene
+combined_long <- combined_long |> 
+  mutate(
+    Tiltak = case_when(
+      Tiltak == "gjsnit_positiv_pranlegg" ~ "ISA cases",
+      Tiltak == "gjsnit_fjerning_pranlegg" ~ "Lice removal",
+      Tiltak == "medikamentell_pr_anlegg" ~ "Medicinal",
+      Tiltak == "mekanisk_pr_anlegg" ~ "Mechanical",
+      Tiltak == "rensefisk_pr_anlegg" ~ "Cleaner fish",
+      TRUE ~ Tiltak
+    )
+  )
+
+# Plot med facet_wrap basert på 'Tiltak'
+ggplot(data = combined_long, aes(x = ProduksjonsområdeId, y = Verdi, fill = Tiltak)) +
+  geom_col(position = "dodge") +  # Side-by-side bars
+  facet_wrap(~ Tiltak, scales = "free_y", ncol = 2) +  # Fasett med to kolonner
+  labs(
+       x = "Area ID",
+       y = "Efforts / Cases pr. farm",
+       fill = "Type of Effort/occurence") +
+  theme_minimal() +
+  scale_fill_viridis_d() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),  # Større titteltekst
+    axis.title.x = element_text(size = 16),  # Større etikett for x-akse
+    axis.title.y = element_text(size = 16),  # Større etikett for y-akse
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),  # Rotert og større tekst for x-akse
+    axis.text.y = element_text(size = 14),  # Større tekst for y-akse
+    legend.position = "bottom",  # Legg legenden nederst
+    legend.text = element_text(size = 16),  # Større tekst for legendepunkter
+    legend.title = element_text(size = 18, face = "bold"),  # Større og fet tittel i legenden
+    legend.key.size = unit(2, "cm"),  # Større legendenøkler
+    legend.spacing.x = unit(1, 'cm'),  # Mer plass mellom legendepunkter
+    strip.text = element_text(size = 20, face = "bold"),  # Større og fet tekst for fasetter
+    panel.spacing = unit(2, "lines")  # Øker avstanden mellom fasetter for mer klarhet
+  )
+
+
 ```
 
